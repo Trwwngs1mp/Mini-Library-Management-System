@@ -7,24 +7,24 @@ class Book:
     def __init__(self, db: Database):
         self.db = db
 
-    def add_book(self, title, author, isbn, published_year=None, quantity=1):
+    def add_book(self, title, author, isbn, published_year=None, quantity=1, image_url=None):
         """Add a new book. Returns the new book ID or None if ISBN exists."""
         try:
             cursor = self.db.execute(
-                """INSERT INTO books (title, author, isbn, published_year, quantity)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (title, author, isbn, published_year, quantity),
+                """INSERT INTO books (title, author, isbn, published_year, quantity, image_url)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (title, author, isbn, published_year, quantity, image_url),
             )
             return cursor.lastrowid
         except Exception as e:
             raise e
 
-    def update_book(self, book_id, title, author, isbn, published_year, quantity):
+    def update_book(self, book_id, title, author, isbn, published_year, quantity, image_url=None):
         """Update an existing book."""
         self.db.execute(
-            """UPDATE books SET title=?, author=?, isbn=?, published_year=?, quantity=?
+            """UPDATE books SET title=?, author=?, isbn=?, published_year=?, quantity=?, image_url=?
                WHERE id=?""",
-            (title, author, isbn, published_year, quantity, book_id),
+            (title, author, isbn, published_year, quantity, image_url, book_id),
         )
 
     def delete_book(self, book_id):

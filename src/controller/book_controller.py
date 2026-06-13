@@ -8,7 +8,7 @@ class BookController:
     def __init__(self, db: Database):
         self.book_model = Book(db)
 
-    def add_book(self, title, author, isbn, published_year, quantity):
+    def add_book(self, title, author, isbn, published_year, quantity, image_url=""):
         """Validate and add a book."""
         errors = []
         if not title.strip():
@@ -34,6 +34,7 @@ class BookController:
                 isbn.strip(),
                 published_year if published_year.strip() else None,
                 qty,
+                image_url.strip() or None,
             )
             return {"success": True, "book_id": book_id}
         except Exception as e:
@@ -41,7 +42,7 @@ class BookController:
                 return {"success": False, "errors": ["ISBN đã tồn tại trong hệ thống."]}
             return {"success": False, "errors": [str(e)]}
 
-    def update_book(self, book_id, title, author, isbn, published_year, quantity):
+    def update_book(self, book_id, title, author, isbn, published_year, quantity, image_url=""):
         """Validate and update a book."""
         errors = []
         if not title.strip():
@@ -68,6 +69,7 @@ class BookController:
                 isbn.strip(),
                 published_year if published_year.strip() else None,
                 qty,
+                image_url.strip() or None,
             )
             return {"success": True}
         except Exception as e:

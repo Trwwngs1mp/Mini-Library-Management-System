@@ -18,7 +18,7 @@ class Database:
 
     def _connect(self):
         """Create connection to the SQLite database."""
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
 
@@ -33,9 +33,16 @@ class Database:
                 author TEXT NOT NULL,
                 isbn TEXT UNIQUE NOT NULL,
                 published_year INTEGER,
-                quantity INTEGER NOT NULL DEFAULT 1
+                quantity INTEGER NOT NULL DEFAULT 1,
+                image_url TEXT
             )
         """)
+
+        # Add image_url column if upgrading from old schema
+        try:
+            cursor.execute("ALTER TABLE books ADD COLUMN image_url TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS readers (

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📊 Dashboard</h2>
+    <p>Tổng quan về hệ thống thư viện</p>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid" id="statsContainer">
+    <div class="stat-card">
+        <div class="stat-icon blue">📚</div>
+        <div class="stat-value" id="statBooks">-</div>
+        <div class="stat-label">Tổng số sách</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">👤</div>
+        <div class="stat-value" id="statReaders">-</div>
+        <div class="stat-label">Độc giả</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow">📋</div>
+        <div class="stat-value" id="statBorrows">-</div>
+        <div class="stat-label">Đang mượn</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">💰</div>
+        <div class="stat-value" id="statFine">-</div>
+        <div class="stat-label">Tổng tiền phạt</div>
+    </div>
+</div>
+
+<!-- Quick Links -->
+<div class="card">
+    <div class="card-header"><h3>🚀 Truy cập nhanh</h3></div>
+    <div class="card-body">
+        <div class="quick-links">
+            <a href="/books" class="quick-link">
+                <div class="ql-icon" style="background:rgba(99,102,241,0.15);color:#6366f1;">📚</div>
+                <div class="ql-text">
+                    <h4>Quản lý sách</h4>
+                    <p>Thêm, sửa, xóa và tìm kiếm sách</p>
+                </div>
+            </a>
+            <a href="/readers" class="quick-link">
+                <div class="ql-icon" style="background:rgba(52,211,153,0.15);color:#34d399;">👤</div>
+                <div class="ql-text">
+                    <h4>Quản lý độc giả</h4>
+                    <p>Đăng ký và quản lý độc giả</p>
+                </div>
+            </a>
+            <a href="/borrow" class="quick-link">
+                <div class="ql-icon" style="background:rgba(251,191,36,0.15);color:#fbbf24;">📋</div>
+                <div class="ql-text">
+                    <h4>Mượn / Trả sách</h4>
+                    <p>Tạo phiếu mượn và trả sách</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadStats() {
+    try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        document.getElementById('statBooks').textContent = data.total_books;
+        document.getElementById('statReaders').textContent = data.total_readers;
+        document.getElementById('statBorrows').textContent = data.active_borrows;
+        document.getElementById('statFine').textContent = data.total_fine.toLocaleString() + '₫';
+    } catch(e) { console.error(e); }
+}
+loadStats();
+</script>
+{% endblock %}

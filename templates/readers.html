@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Quản lý độc giả{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>👤 Quản lý độc giả</h2>
+    <p>Đăng ký và quản lý thông tin độc giả</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Tất cả độc giả</h3>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="openReaderModal()">➕ Thêm độc giả</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="search-box" style="margin-bottom:16px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="form-control" id="searchReaders" placeholder="Tìm kiếm theo tên, email, SĐT..." onkeyup="loadReaders()">
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Họ tên</th>
+                        <th>Email</th>
+                        <th>SĐT</th>
+                        <th>Ngày tạo</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="readersTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-overlay" id="historyModal">
+    <div class="modal" style="max-width:800px;">
+        <div class="modal-header">
+            <h3>📜 Lịch sử mượn sách</h3>
+            <button class="modal-close" onclick="closeHistoryModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã PM</th>
+                            <th>Sách</th>
+                            <th>Ngày mượn</th>
+                            <th>Hạn trả</th>
+                            <th>Ngày trả</th>
+                            <th>Phạt</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeHistoryModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reader Modal -->
+<div class="modal-overlay" id="readerModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="readerModalTitle">Thêm độc giả</h3>
+            <button class="modal-close" onclick="closeReaderModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="readerId" value="">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Họ tên</label>
+                    <input type="text" class="form-control" id="readerName" placeholder="Nhập họ tên">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" id="readerEmail" placeholder="Nhập email">
+                </div>
+                <div class="form-group">
+                    <label>Số điện thoại</label>
+                    <input type="text" class="form-control" id="readerPhone" placeholder="Nhập SĐT">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeReaderModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveReader()">💾 Lưu</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let readersData = [];
+
+async function loadReaders() {
+    const keyword = document.getElementById('searchReaders').value;
+    try {
+        const res = await fetch('/api/readers?search=' + encodeURIComponent(keyword));
+        readersData = await res.json();
+        renderReaders();
+    } catch(e) { console.error(e); }
+}
+
+function renderReaders() {
+    const tbody = document.getElementById('readersTableBody');
+    tbody.innerHTML = '';
+
+    if (readersData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Không có độc giả</td></tr>';
+        return;
+    }
+
+    readersData.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'clickable-row';
+        tr.innerHTML = `
+            <td>${r.id}</td>
+            <td><strong>${escapeHtml(r.name)}</strong></td>
+            <td>${escapeHtml(r.email)}</td>
+            <td>${escapeHtml(r.phone || '')}</td>
+            <td>${r.created_at || ''}</td>
+            <td class="action-cell">
+                <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); viewHistory(${r.id})">📜</button>
+                <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editReader(${r.id})">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteReader(${r.id})">🗑️</button>
+            </td>
+        `;
+        tr.ondblclick = function() { viewHistory(r.id); };
+        tbody.appendChild(tr);
+    });
+}
+
+function openReaderModal() {
+    document.getElementById('readerModalTitle').textContent = 'Thêm độc giả';
+    document.getElementById('readerId').value = '';
+    document.getElementById('readerName').value = '';
+    document.getElementById('readerEmail').value = '';
+    document.getElementById('readerPhone').value = '';
+    document.getElementById('readerModal').classList.add('active');
+}
+
+function closeReaderModal() {
+    document.getElementById('readerModal').classList.remove('active');
+}
+
+function editReader(id) {
+    const r = readersData.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('readerModalTitle').textContent = 'Cập nhật độc giả';
+    document.getElementById('readerId').value = r.id;
+    document.getElementById('readerName').value = r.name;
+    document.getElementById('readerEmail').value = r.email;
+    document.getElementById('readerPhone').value = r.phone || '';
+    document.getElementById('readerModal').classList.add('active');
+}
+
+async function saveReader() {
+    const id = document.getElementById('readerId').value;
+    const data = {
+        name: document.getElementById('readerName').value,
+        email: document.getElementById('readerEmail').value,
+        phone: document.getElementById('readerPhone').value,
+    };
+
+    if (!data.name.trim() || !data.email.trim()) {
+        showToast('Vui lòng nhập tên và email', 'error');
+        return;
+    }
+
+    try {
+        let res;
+        if (id) {
+            res = await fetch('/api/readers/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        } else {
+            res = await fetch('/api/readers', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        }
+        if (res.ok) {
+            showToast(id ? 'Cập nhật độc giả thành công!' : 'Thêm độc giả thành công!', 'success');
+            closeReaderModal();
+            loadReaders();
+        } else {
+            const result = await res.json();
+            showToast(result.error, 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+async function deleteReader(id) {
+    if (!confirm('Bạn có chắc muốn xóa độc giả này?')) return;
+    try {
+        const res = await fetch('/api/readers/' + id, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Xóa độc giả thành công!', 'success');
+            loadReaders();
+        } else {
+            const result = await res.json();
+            showToast(result.error, 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+async function viewHistory(readerId) {
+    document.getElementById('historyModal').classList.add('active');
+    const tbody = document.getElementById('historyTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;"><div class="spinner"></div></td></tr>';
+
+    try {
+        const res = await fetch('/api/readers/' + readerId + '/history');
+        const history = await res.json();
+        tbody.innerHTML = '';
+
+        if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Chưa có lịch sử mượn sách</td></tr>';
+            return;
+        }
+
+        history.forEach(h => {
+            const tr = document.createElement('tr');
+            const status = h.status === 'borrowed' ? '<span class="badge badge-borrowed">Đã mượn</span>' : '<span class="badge badge-returned">Đã trả</span>';
+            tr.innerHTML = `
+                <td>${h.id}</td>
+                <td>${escapeHtml(h.book_title)}</td>
+                <td>${h.borrow_date}</td>
+                <td>${h.due_date}</td>
+                <td>${h.return_date || '-'}</td>
+                <td class="${h.fine ? 'fine-amount' : 'fine-amount zero'}">${h.fine ? h.fine.toLocaleString() + '₫' : '0₫'}</td>
+                <td>${status}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch(e) {
+        showToast('Lỗi tải lịch sử', 'error');
+        tbody.innerHTML = '';
+    }
+}
+
+function closeHistoryModal() {
+    document.getElementById('historyModal').classList.remove('active');
+}
+
+loadReaders();
+</script>
+{% endblock %}

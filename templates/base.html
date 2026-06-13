@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Library - {% block title %}Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Mobile Toggle -->
+    <div class="mobile-toggle" onclick="toggleSidebar()">☰</div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">📚</div>
+            <div>
+                <h1>Mini Library</h1>
+                <small>Management System</small>
+            </div>
+        </div>
+
+        <div class="nav-section">Main Menu</div>
+
+        <a href="/" class="nav-item {% if active == 'dashboard' %}active{% endif %}" onclick="navigateTo('/')">
+            <span class="nav-icon">🏠</span>
+            Dashboard
+        </a>
+
+        <a href="/books" class="nav-item {% if active == 'books' %}active{% endif %}" onclick="navigateTo('/books')">
+            <span class="nav-icon">📚</span>
+            Quản lý sách
+        </a>
+
+        <a href="/readers" class="nav-item {% if active == 'readers' %}active{% endif %}" onclick="navigateTo('/readers')">
+            <span class="nav-icon">👤</span>
+            Quản lý độc giả
+        </a>
+
+        <a href="/borrow" class="nav-item {% if active == 'borrow' %}active{% endif %}" onclick="navigateTo('/borrow')">
+            <span class="nav-icon">📋</span>
+            Mượn / Trả sách
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/app.js"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

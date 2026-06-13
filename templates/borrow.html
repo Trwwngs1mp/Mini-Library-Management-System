@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}Mượn / Trả sách{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📋 Mượn / Trả sách</h2>
+    <p>Quản lý phiếu mượn và trả sách</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon yellow">📋</div>
+        <div class="stat-value" id="activeCount">-</div>
+        <div class="stat-label">Phiếu đang mượn</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">💰</div>
+        <div class="stat-value" id="totalFine">-</div>
+        <div class="stat-label">Tổng tiền phạt</div>
+    </div>
+</div>
+
+<!-- Borrow Form -->
+<div class="card">
+    <div class="card-header">
+        <h3>📥 Tạo phiếu mượn</h3>
+    </div>
+    <div class="card-body">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Độc giả</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" class="form-control" id="borrowReaderSearch" placeholder="Tìm độc giả..." onkeyup="searchReaderSelect()">
+                    <div style="display:none;" id="readerSelectContainer">
+                        <select class="form-control" id="borrowReaderId" onchange="updateReaderInfo()">
+                            <option value="">-- Chọn độc giả --</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="borrowReaderInfo" style="margin-top:4px;font-size:12px;color:var(--text-muted);"></div>
+            </div>
+            <div class="form-group">
+                <label>Sách</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" class="form-control" id="borrowBookSearch" placeholder="Tìm sách..." onkeyup="searchBookSelect()">
+                    <div style="display:none;" id="bookSelectContainer">
+                        <select class="form-control" id="borrowBookId" onchange="updateBookInfo()">
+                            <option value="">-- Chọn sách --</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="borrowBookInfo" style="margin-top:4px;font-size:12px;color:var(--text-muted);"></div>
+            </div>
+        </div>
+        <button class="btn btn-success" onclick="createBorrow()" style="margin-top:12px;">✅ Xác nhận mượn</button>
+    </div>
+</div>
+
+<!-- Return Form -->
+<div class="card">
+    <div class="card-header">
+        <h3>📤 Trả sách</h3>
+    </div>
+    <div class="card-body">
+        <div style="display:flex;gap:12px;align-items:end;">
+            <div class="form-group" style="flex:1;margin-bottom:0;">
+                <label>Mã phiếu mượn</label>
+                <input type="number" class="form-control" id="returnTicketId" placeholder="Nhập mã phiếu mượn">
+            </div>
+            <button class="btn btn-success" onclick="returnTicket()">✅ Xác nhận trả</button>
+        </div>
+    </div>
+</div>
+
+<!-- Tickets List -->
+<div class="card">
+    <div class="card-header">
+        <h3>Tất cả phiếu mượn</h3>
+    </div>
+    <div class="card-body">
+        <div class="search-box" style="margin-bottom:16px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="form-control" id="searchTickets" placeholder="Tìm kiếm phiếu mượn..." onkeyup="loadTickets()">
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã PM</th>
+                        <th>Độc giả</th>
+                        <th>Sách</th>
+                        <th>Ngày mượn</th>
+                        <th>Hạn trả</th>
+                        <th>Ngày trả</th>
+                        <th>Phạt</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="ticketsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let ticketsData = [];
+let readerOptions = [];
+let bookOptions = [];
+let selectedReaderId = null;
+let selectedBookId = null;
+
+async function loadTickets() {
+    const keyword = document.getElementById('searchTickets').value;
+    try {
+        const res = await fetch('/api/tickets?search=' + encodeURIComponent(keyword));
+        ticketsData = await res.json();
+        renderTickets();
+        updateStats();
+    } catch(e) { console.error(e); }
+}
+
+function renderTickets() {
+    const tbody = document.getElementById('ticketsTableBody');
+    tbody.innerHTML = '';
+
+    if (ticketsData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">Chưa có phiếu mượn</td></tr>';
+        return;
+    }
+
+    ticketsData.forEach(t => {
+        const tr = document.createElement('tr');
+
+        let statusBadge = '';
+        if (t.status === 'borrowed') {
+            const dueDate = new Date(t.due_date);
+            const today = new Date();
+            if (today > dueDate) {
+                statusBadge = '<span class="badge badge-overdue">🔴 Quá hạn</span>';
+            } else {
+                statusBadge = '<span class="badge badge-borrowed">🟡 Đã mượn</span>';
+            }
+        } else {
+            statusBadge = '<span class="badge badge-returned">🟢 Đã trả</span>';
+        }
+
+        const fineDisplay = t.fine ? `<span class="fine-amount">${t.fine.toLocaleString()}₫</span>` : '0₫';
+        const canReturn = t.status === 'borrowed';
+        const returnBtn = canReturn ? `<button class="btn btn-sm btn-success" onclick="returnTicketById(${t.id})">🔄 Trả</button>` : '';
+
+        tr.innerHTML = `
+            <td><strong>#${t.id}</strong></td>
+            <td>${escapeHtml(t.reader_name)}</td>
+            <td>${escapeHtml(t.book_title)}</td>
+            <td>${t.borrow_date}</td>
+            <td>${t.due_date}</td>
+            <td>${t.return_date || '-'}</td>
+            <td>${fineDisplay}</td>
+            <td>${statusBadge}</td>
+            <td class="action-cell">${returnBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateStats() {
+    const active = ticketsData.filter(t => t.status === 'borrowed').length;
+    const totalFine = ticketsData.reduce((sum, t) => sum + (t.fine || 0), 0);
+    document.getElementById('activeCount').textContent = active;
+    document.getElementById('totalFine').textContent = totalFine.toLocaleString() + '₫';
+}
+
+async function searchReaderSelect() {
+    const keyword = document.getElementById('borrowReaderSearch').value;
+    const container = document.getElementById('readerSelectContainer');
+    const select = document.getElementById('borrowReaderId');
+
+    if (keyword.length < 1) {
+        container.style.display = 'none';
+        document.getElementById('borrowReaderInfo').textContent = '';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/readers?search=' + encodeURIComponent(keyword));
+        readerOptions = await res.json();
+        container.style.display = 'block';
+        select.innerHTML = '<option value="">-- Chọn độc giả --</option>';
+        readerOptions.forEach(r => {
+            select.innerHTML += `<option value="${r.id}">${escapeHtml(r.name)} - ${escapeHtml(r.email)}</option>`;
+        });
+    } catch(e) { console.error(e); }
+}
+
+function updateReaderInfo() {
+    const id = parseInt(document.getElementById('borrowReaderId').value);
+    const r = readerOptions.find(x => x.id === id);
+    if (r) {
+        selectedReaderId = id;
+        document.getElementById('borrowReaderInfo').textContent = `${r.name} • ${r.email}`;
+    }
+}
+
+async function searchBookSelect() {
+    const keyword = document.getElementById('borrowBookSearch').value;
+    const container = document.getElementById('bookSelectContainer');
+    const select = document.getElementById('borrowBookId');
+
+    if (keyword.length < 1) {
+        container.style.display = 'none';
+        document.getElementById('borrowBookInfo').textContent = '';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/books?search=' + encodeURIComponent(keyword));
+        bookOptions = await res.json();
+        container.style.display = 'block';
+        select.innerHTML = '<option value="">-- Chọn sách --</option>';
+        bookOptions.forEach(b => {
+            select.innerHTML += `<option value="${b.id}">${escapeHtml(b.title)} - ${escapeHtml(b.author)} (SL: ${b.quantity})</option>`;
+        });
+    } catch(e) { console.error(e); }
+}
+
+function updateBookInfo() {
+    const id = parseInt(document.getElementById('borrowBookId').value);
+    const b = bookOptions.find(x => x.id === id);
+    if (b) {
+        selectedBookId = id;
+        const qtyText = b.quantity > 0 ? `Còn ${b.quantity} cuốn` : 'Hết sách';
+        document.getElementById('borrowBookInfo').textContent = `${b.title} • ${qtyText}`;
+        if (b.quantity <= 0) {
+            document.getElementById('borrowBookInfo').style.color = 'var(--danger)';
+        } else {
+            document.getElementById('borrowBookInfo').style.color = '';
+        }
+    }
+}
+
+async function createBorrow() {
+    const readerId = selectedReaderId;
+    const bookId = selectedBookId;
+
+    if (!readerId || !bookId) {
+        showToast('Vui lòng chọn độc giả và sách', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/tickets/borrow', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ reader_id: readerId, book_id: bookId })
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast(`✅ Mượn sách thành công! Mã phiếu: #${result.ticket_id}`, 'success');
+            document.getElementById('borrowReaderSearch').value = '';
+            document.getElementById('borrowBookSearch').value = '';
+            document.getElementById('readerSelectContainer').style.display = 'none';
+            document.getElementById('bookSelectContainer').style.display = 'none';
+            document.getElementById('borrowReaderInfo').textContent = '';
+            document.getElementById('borrowBookInfo').textContent = '';
+            selectedReaderId = null;
+            selectedBookId = null;
+            loadTickets();
+        } else {
+            showToast(result.error || 'Lỗi', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+async function returnTicketById(ticketId) {
+    document.getElementById('returnTicketId').value = ticketId;
+    returnTicket();
+}
+
+async function returnTicket() {
+    const ticketId = parseInt(document.getElementById('returnTicketId').value);
+    if (!ticketId) {
+        showToast('Vui lòng nhập mã phiếu mượn', 'error');
+        return;
+    }
+
+    // Check ticket first
+    try {
+        const checkRes = await fetch('/api/tickets/' + ticketId);
+        if (!checkRes.ok) {
+            showToast('Phiếu mượn không tồn tại', 'error');
+            return;
+        }
+        const ticket = await checkRes.json();
+        if (ticket.status === 'returned') {
+            showToast('Phiếu này đã được trả trước đó', 'warning');
+            return;
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/tickets/' + ticketId + '/return', { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+            let msg = '✅ Trả sách thành công!';
+            if (result.fine > 0) {
+                msg += `\nTiền phạt trễ hạn: ${result.fine.toLocaleString()}₫`;
+            }
+            showToast(msg, result.fine > 0 ? 'warning' : 'success');
+            document.getElementById('returnTicketId').value = '';
+            loadTickets();
+        } else {
+            showToast(result.error || 'Lỗi', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+loadTickets();
+</script>
+{% endblock %}

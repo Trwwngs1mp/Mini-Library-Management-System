@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Quản lý sách{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📚 Quản lý sách</h2>
+    <p>Thêm, sửa, xóa và tìm kiếm sách trong thư viện</p>
+</div>
+
+<!-- Action buttons -->
+<div class="card">
+    <div class="card-header">
+        <h3>Tất cả sách</h3>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="openBookModal()">➕ Thêm sách</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Search -->
+        <div class="search-box" style="margin-bottom:16px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="form-control" id="searchBooks" placeholder="Tìm kiếm theo tiêu đề, tác giả, ISBN..." onkeyup="loadBooks()">
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingSpinner" class="spinner" style="display:none;"></div>
+
+        <!-- Books Grid -->
+        <div class="book-grid" id="booksContainer"></div>
+
+        <!-- Table View -->
+        <div class="table-container" id="booksTableContainer"></div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="bookModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="bookModalTitle">Thêm sách mới</h3>
+            <button class="modal-close" onclick="closeBookModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="bookId" value="">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Tiêu đề sách</label>
+                    <input type="text" class="form-control" id="bookTitle" placeholder="Nhập tiêu đề">
+                </div>
+                <div class="form-group">
+                    <label>Tác giả</label>
+                    <input type="text" class="form-control" id="bookAuthor" placeholder="Nhập tên tác giả">
+                </div>
+                <div class="form-group">
+                    <label>ISBN</label>
+                    <input type="text" class="form-control" id="bookIsbn" placeholder="Nhập mã ISBN">
+                </div>
+                <div class="form-group">
+                    <label>Ảnh bìa (URL)</label>
+                    <input type="text" class="form-control" id="bookImage" placeholder="https://example.com/cover.jpg">
+                </div>
+                <div class="form-group">
+                    <label>Năm xuất bản</label>
+                    <input type="number" class="form-control" id="bookYear" placeholder="2024">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng</label>
+                    <input type="number" class="form-control" id="bookQty" value="1" min="1">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeBookModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveBook()">💾 Lưu</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let booksData = [];
+
+async function loadBooks() {
+    const keyword = document.getElementById('searchBooks').value;
+    const spinner = document.getElementById('loadingSpinner');
+    spinner.style.display = 'block';
+
+    try {
+        const res = await fetch('/api/books?search=' + encodeURIComponent(keyword));
+        booksData = await res.json();
+        renderBooks();
+    } catch(e) { console.error(e); }
+
+    spinner.style.display = 'none';
+}
+
+function renderBooks() {
+    const container = document.getElementById('booksContainer');
+    container.innerHTML = '';
+
+    if (booksData.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><h3>Không có sách</h3><p>Thêm sách mới để bắt đầu</p></div>';
+        return;
+    }
+
+    booksData.forEach(book => {
+        const card = document.createElement('div');
+        card.className = 'book-card';
+        card.innerHTML = `
+            <div class="book-img-placeholder">📖</div>
+            <h4>${escapeHtml(book.title)}</h4>
+            <p>${escapeHtml(book.author)}</p>
+            <p>SL: ${book.quantity} • ${book.published_year || ''}</p>
+            <div style="margin-top:8px;display:flex;gap:4px;justify-content:center;">
+                <button class="btn btn-sm btn-secondary" onclick="editBook(${book.id})">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.id})">🗑️</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function openBookModal() {
+    document.getElementById('bookModalTitle').textContent = 'Thêm sách mới';
+    document.getElementById('bookId').value = '';
+    document.getElementById('bookTitle').value = '';
+    document.getElementById('bookAuthor').value = '';
+    document.getElementById('bookIsbn').value = '';
+    document.getElementById('bookImage').value = '';
+    document.getElementById('bookYear').value = '';
+    document.getElementById('bookQty').value = '1';
+    document.getElementById('bookModal').classList.add('active');
+}
+
+function closeBookModal() {
+    document.getElementById('bookModal').classList.remove('active');
+}
+
+function editBook(id) {
+    const book = booksData.find(b => b.id === id);
+    if (!book) return;
+    document.getElementById('bookModalTitle').textContent = 'Cập nhật sách';
+    document.getElementById('bookId').value = book.id;
+    document.getElementById('bookTitle').value = book.title;
+    document.getElementById('bookAuthor').value = book.author;
+    document.getElementById('bookIsbn').value = book.isbn;
+    document.getElementById('bookImage').value = book.image_url || '';
+    document.getElementById('bookYear').value = book.published_year || '';
+    document.getElementById('bookQty').value = book.quantity;
+    document.getElementById('bookModal').classList.add('active');
+}
+
+async function saveBook() {
+    const id = document.getElementById('bookId').value;
+    const data = {
+        title: document.getElementById('bookTitle').value,
+        author: document.getElementById('bookAuthor').value,
+        isbn: document.getElementById('bookIsbn').value,
+        published_year: document.getElementById('bookYear').value,
+        quantity: document.getElementById('bookQty').value,
+        image_url: document.getElementById('bookImage').value,
+    };
+
+    if (!data.title.trim() || !data.author.trim() || !data.isbn.trim()) {
+        showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
+        return;
+    }
+
+    try {
+        let res;
+        if (id) {
+            res = await fetch('/api/books/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        } else {
+            res = await fetch('/api/books', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        }
+        const result = await res.json();
+        if (res.ok) {
+            showToast(id ? 'Cập nhật sách thành công!' : 'Thêm sách thành công!', 'success');
+            closeBookModal();
+            loadBooks();
+        } else {
+            showToast(result.error || 'Lỗi', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+async function deleteBook(id) {
+    if (!confirm('Bạn có chắc muốn xóa sách này?')) return;
+    try {
+        const res = await fetch('/api/books/' + id, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Xóa sách thành công!', 'success');
+            loadBooks();
+        } else {
+            const result = await res.json();
+            showToast(result.error, 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+    }
+}
+
+loadBooks();
+</script>
+{% endblock %}
